@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "INR", "JPY", "AED", "SGD"];
@@ -46,47 +48,38 @@ export default function ExpenseForm() {
     };
 
     return (
-        <div style={styles.page}>
-            <style>{cssAnimations}</style>
-
-            <div style={styles.card}>
+        <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center font-sans p-8">
+            <div className="bg-white rounded-[20px] shadow-[0_2px_32px_rgba(0,0,0,0.07),0_1px_4px_rgba(0,0,0,0.04)] p-8 md:p-9 w-full max-w-[780px] border border-[#ebebeb]">
                 {/* Header row */}
-                <div style={styles.headerRow}>
+                <div className="flex items-center justify-between flex-wrap gap-4 mb-5">
                     {/* Receipt button */}
-                    <label style={styles.receiptBtn}>
-                        <input type="file" accept="image/*,.pdf" onChange={handleFileChange} style={{ display: "none" }} />
-                        <span style={styles.receiptIcon}>📎</span>
+                    <label className="flex items-center gap-2 bg-[#f5f3ef] border-[1.5px] border-dashed border-[#c9c5bc] rounded-lg px-[18px] py-2 cursor-pointer text-[13px] font-medium text-[#555] transition-colors hover:bg-[#ebe9e4]">
+                        <input type="file" accept="image/*,.pdf" onChange={handleFileChange} className="hidden" />
+                        <span className="text-base">📎</span>
                         <span>{receiptName ? receiptName.slice(0, 18) + "…" : "Attach Receipt"}</span>
                     </label>
 
                     {/* Stepper */}
-                    <div style={styles.stepper}>
+                    <div className="flex items-start">
                         {STEPS.map((step, i) => (
-                            <div key={step.key} style={styles.stepItem}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                            <div key={step.key} className="flex flex-col items-center gap-1.5">
+                                <div className="flex items-center gap-0">
                                     <div
+                                        className={`w-3 h-3 rounded-full transition-all duration-300 ${i <= currentStep ? "bg-[#1a1a2e]" : "bg-[#d1d5db]"}`}
                                         style={{
-                                            ...styles.stepDot,
-                                            background: i <= currentStep ? "#1a1a2e" : "#d1d5db",
                                             border: i === currentStep ? "2.5px solid #6366f1" : "2.5px solid transparent",
                                             transform: i === currentStep ? "scale(1.2)" : "scale(1)",
                                         }}
                                     />
                                     {i < STEPS.length - 1 && (
                                         <div
-                                            style={{
-                                                ...styles.stepLine,
-                                                background: i < currentStep ? "#1a1a2e" : "#d1d5db",
-                                            }}
+                                            className={`w-16 h-[2px] rounded-[1px] transition-colors duration-300 mt-[5px] ${i < currentStep ? "bg-[#1a1a2e]" : "bg-[#d1d5db]"}`}
                                         />
                                     )}
                                 </div>
                                 <span
-                                    style={{
-                                        ...styles.stepLabel,
-                                        color: i <= currentStep ? "#1a1a2e" : "#9ca3af",
-                                        fontWeight: i === currentStep ? 700 : 400,
-                                    }}
+                                    className={`text-[11px] tracking-[0.2px] whitespace-nowrap ${i <= currentStep ? "text-[#1a1a2e]" : "text-[#9ca3af]"}`}
+                                    style={{ fontWeight: i === currentStep ? 700 : 400 }}
                                 >
                                     {step.label}
                                 </span>
@@ -96,15 +89,15 @@ export default function ExpenseForm() {
                 </div>
 
                 {/* Divider */}
-                <div style={styles.divider} />
+                <div className="h-[1px] bg-[#f0ede8] mx-[-4px]" />
 
                 {/* Form grid */}
-                <div style={styles.grid}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 mt-6">
                     {/* Description */}
-                    <div style={{ ...styles.fieldWrap, gridColumn: "1 / 2" }}>
-                        <label style={styles.label}>Description</label>
+                    <div className="flex flex-col gap-1.5 sm:col-span-1 border-0">
+                        <label className="text-xs font-semibold text-[#888] tracking-[0.4px] uppercase flex items-center gap-1.5">Description</label>
                         <input
-                            style={styles.input}
+                            className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[15px] text-[#1a1a2e] py-2 px-1 outline-none transition-colors focus:border-[#6366f1]"
                             placeholder="What was this expense for?"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
@@ -112,66 +105,76 @@ export default function ExpenseForm() {
                     </div>
 
                     {/* Expense Date */}
-                    <div style={{ ...styles.fieldWrap, gridColumn: "2 / 3" }}>
-                        <label style={styles.label}>Expense Date</label>
+                    <div className="flex flex-col gap-1.5 sm:col-span-1 border-0">
+                        <label className="text-xs font-semibold text-[#888] tracking-[0.4px] uppercase flex items-center gap-1.5">Expense Date</label>
                         <input
                             type="date"
-                            style={styles.input}
+                            className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[15px] text-[#1a1a2e] py-2 px-1 outline-none transition-colors focus:border-[#6366f1]"
                             value={expenseDate}
                             onChange={(e) => setExpenseDate(e.target.value)}
                         />
                     </div>
 
                     {/* Category */}
-                    <div style={{ ...styles.fieldWrap, gridColumn: "1 / 2" }}>
-                        <label style={styles.label}>Category</label>
-                        <select style={styles.select} value={category} onChange={(e) => setCategory(e.target.value)}>
+                    <div className="flex flex-col gap-1.5 sm:col-span-1 border-0">
+                        <label className="text-xs font-semibold text-[#888] tracking-[0.4px] uppercase flex items-center gap-1.5">Category</label>
+                        <select 
+                            className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[15px] text-[#1a1a2e] py-2 px-1 appearance-none outline-none cursor-pointer focus:border-[#6366f1] bg-no-repeat bg-[right_4px_center]" 
+                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E")` }}
+                            value={category} 
+                            onChange={(e) => setCategory(e.target.value)}
+                        >
                             <option value="">Select category</option>
                             {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
                         </select>
                     </div>
 
                     {/* Paid By */}
-                    <div style={{ ...styles.fieldWrap, gridColumn: "2 / 3" }}>
-                        <label style={styles.label}>Paid by</label>
-                        <select style={styles.select} value={paidBy} onChange={(e) => setPaidBy(e.target.value)}>
+                    <div className="flex flex-col gap-1.5 sm:col-span-1 border-0">
+                        <label className="text-xs font-semibold text-[#888] tracking-[0.4px] uppercase flex items-center gap-1.5">Paid by</label>
+                        <select 
+                            className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[15px] text-[#1a1a2e] py-2 px-1 appearance-none outline-none cursor-pointer focus:border-[#6366f1] bg-no-repeat bg-[right_4px_center]"
+                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E")` }}
+                            value={paidBy} 
+                            onChange={(e) => setPaidBy(e.target.value)}
+                        >
                             <option value="">Select method</option>
                             {PAID_BY.map((p) => <option key={p}>{p}</option>)}
                         </select>
                     </div>
 
                     {/* Amount + Currency */}
-                    <div style={{ ...styles.fieldWrap, gridColumn: "1 / 2" }}>
-                        <label style={styles.label}>
+                    <div className="flex flex-col gap-1.5 sm:col-span-1 border-0">
+                        <label className="text-xs font-semibold text-[#888] tracking-[0.4px] uppercase flex items-center gap-1.5">
                             Total amount in{" "}
                             <select
-                                style={styles.inlineSelect}
+                                className="border-b border-[#c4c0b8] bg-transparent text-xs font-semibold text-[#6366f1] cursor-pointer outline-none px-0.5"
                                 value={currency}
                                 onChange={(e) => setCurrency(e.target.value)}
                             >
                                 {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
                             </select>
                         </label>
-                        <div style={styles.amountWrap}>
-                            <span style={styles.currencyBadge}>{currency}</span>
+                        <div className="relative flex items-center">
+                            <span className="absolute left-[4px] text-[13px] font-bold text-[#6366f1] tracking-[0.5px] pointer-events-none">{currency}</span>
                             <input
                                 type="number"
-                                style={{ ...styles.input, paddingLeft: 52 }}
+                                className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[15px] text-[#1a1a2e] py-2 px-1 pl-[52px] outline-none transition-colors focus:border-[#6366f1]"
                                 placeholder="0.00"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
                             />
                         </div>
-                        <p style={styles.hint}>
+                        <p className="text-[11px] text-[#aaa] mt-1 leading-[1.5]">
                             Employee can submit in any currency · Manager sees auto-converted base currency with live rates
                         </p>
                     </div>
 
                     {/* Remarks */}
-                    <div style={{ ...styles.fieldWrap, gridColumn: "2 / 3" }}>
-                        <label style={styles.label}>Remarks</label>
+                    <div className="flex flex-col gap-1.5 sm:col-span-1 border-0">
+                        <label className="text-xs font-semibold text-[#888] tracking-[0.4px] uppercase flex items-center gap-1.5">Remarks</label>
                         <textarea
-                            style={{ ...styles.input, height: 72, resize: "none", paddingTop: 10 }}
+                            className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[15px] text-[#1a1a2e] px-1 h-[72px] resize-none pt-[10px] outline-none transition-colors focus:border-[#6366f1]"
                             placeholder="Any additional notes…"
                             value={remarks}
                             onChange={(e) => setRemarks(e.target.value)}
@@ -180,27 +183,27 @@ export default function ExpenseForm() {
                 </div>
 
                 {/* Divider */}
-                <div style={{ ...styles.divider, margin: "20px 0 16px" }} />
+                <div className="h-[1px] bg-[#f0ede8] mx-[-4px] my-5" />
 
                 {/* Approval log */}
                 <div>
-                    <p style={styles.logTitle}>Approval History</p>
-                    <table style={styles.table}>
+                    <p className="text-[11px] font-bold text-[#aaa] tracking-[0.8px] uppercase mb-2.5">Approval History</p>
+                    <table className="w-full border-collapse text-sm">
                         <thead>
                             <tr>
                                 {["Approver", "Status", "Time"].map((h) => (
-                                    <th key={h} style={styles.th}>{h}</th>
+                                    <th key={h} className="text-left font-semibold text-[#bbb] text-[11px] tracking-[0.5px] pb-2 border-b border-[#f0ede8]">{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {approvalLog.map((row, i) => (
                                 <tr key={i}>
-                                    <td style={styles.td}>{row.approver}</td>
-                                    <td style={styles.td}>
-                                        <span style={styles.approvedBadge}>{row.status}</span>
+                                    <td className="py-2.5 text-[#444] border-b border-[#f8f6f2] text-sm">{row.approver}</td>
+                                    <td className="py-2.5 text-[#444] border-b border-[#f8f6f2] text-sm">
+                                        <span className="bg-[#f0fdf4] text-[#16a34a] text-xs font-semibold px-2.5 py-[3px] rounded-[20px] border border-[#bbf7d0]">{row.status}</span>
                                     </td>
-                                    <td style={styles.td}>{row.time}</td>
+                                    <td className="py-2.5 text-[#444] border-b border-[#f8f6f2] text-sm">{row.time}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -208,12 +211,9 @@ export default function ExpenseForm() {
                 </div>
 
                 {/* Submit */}
-                <div style={styles.submitRow}>
+                <div className="flex justify-center mt-7">
                     <button
-                        style={{
-                            ...styles.submitBtn,
-                            ...(submitted ? styles.submitBtnSuccess : {}),
-                        }}
+                        className={`rounded-[40px] px-[52px] py-[13px] text-[15px] font-semibold cursor-pointer tracking-[0.3px] transition-all duration-250 hover:-translate-y-[1px] hover:opacity-[0.88] ${submitted ? 'bg-[#16a34a] text-white shadow-[0_4px_16px_rgba(22,163,74,0.25)]' : 'bg-[#1a1a2e] text-white shadow-[0_4px_16px_rgba(26,26,46,0.18)]'}`}
                         onClick={handleSubmit}
                     >
                         {submitted ? "✓ Submitted!" : "Submit Expense"}
@@ -223,236 +223,3 @@ export default function ExpenseForm() {
         </div>
     );
 }
-
-// ─── Styles ────────────────────────────────────────────────────────────────
-
-const styles: Record<string, React.CSSProperties> = {
-    page: {
-        minHeight: "100vh",
-        background: "#faf9f6",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-        padding: "32px 16px",
-    },
-    card: {
-        background: "#ffffff",
-        borderRadius: 20,
-        boxShadow: "0 2px 32px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04)",
-        padding: "32px 36px",
-        width: "100%",
-        maxWidth: 780,
-        border: "1px solid #ebebeb",
-    },
-    headerRow: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: 16,
-        marginBottom: 20,
-    },
-    receiptBtn: {
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        background: "#f5f3ef",
-        border: "1.5px dashed #c9c5bc",
-        borderRadius: 10,
-        padding: "8px 18px",
-        cursor: "pointer",
-        fontSize: 13,
-        fontWeight: 500,
-        color: "#555",
-        transition: "background 0.2s",
-    },
-    receiptIcon: { fontSize: 16 },
-    stepper: {
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 0,
-    },
-    stepItem: {
-        display: "flex",
-        flexDirection: "column" as const,
-        alignItems: "center",
-        gap: 6,
-    },
-    stepDot: {
-        width: 12,
-        height: 12,
-        borderRadius: "50%",
-        transition: "all 0.3s",
-    },
-    stepLine: {
-        width: 64,
-        height: 2,
-        borderRadius: 1,
-        transition: "background 0.3s",
-        marginTop: 5,
-    },
-    stepLabel: {
-        fontSize: 11,
-        letterSpacing: 0.2,
-        whiteSpace: "nowrap" as const,
-    },
-    divider: {
-        height: 1,
-        background: "#f0ede8",
-        margin: "0 -4px",
-    },
-    grid: {
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: "20px 32px",
-        marginTop: 24,
-    },
-    fieldWrap: {
-        display: "flex",
-        flexDirection: "column" as const,
-        gap: 6,
-    },
-    label: {
-        fontSize: 12,
-        fontWeight: 600,
-        color: "#888",
-        letterSpacing: 0.4,
-        textTransform: "uppercase" as const,
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-    },
-    input: {
-        border: "none",
-        borderBottom: "1.5px solid #e0ddd8",
-        borderRadius: 0,
-        padding: "8px 4px",
-        fontSize: 15,
-        color: "#1a1a2e",
-        background: "transparent",
-        outline: "none",
-        width: "100%",
-        transition: "border-color 0.2s",
-        fontFamily: "inherit",
-    },
-    select: {
-        border: "none",
-        borderBottom: "1.5px solid #e0ddd8",
-        borderRadius: 0,
-        padding: "8px 4px",
-        fontSize: 15,
-        color: "#1a1a2e",
-        background: "transparent",
-        outline: "none",
-        width: "100%",
-        cursor: "pointer",
-        fontFamily: "inherit",
-        appearance: "none" as const,
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "right 4px center",
-    },
-    inlineSelect: {
-        border: "none",
-        borderBottom: "1px solid #c4c0b8",
-        background: "transparent",
-        fontSize: 12,
-        fontWeight: 600,
-        color: "#6366f1",
-        cursor: "pointer",
-        outline: "none",
-        padding: "0 2px",
-        fontFamily: "inherit",
-    },
-    amountWrap: {
-        position: "relative" as const,
-        display: "flex",
-        alignItems: "center",
-    },
-    currencyBadge: {
-        position: "absolute" as const,
-        left: 4,
-        fontSize: 13,
-        fontWeight: 700,
-        color: "#6366f1",
-        pointerEvents: "none" as const,
-        letterSpacing: 0.5,
-    },
-    hint: {
-        fontSize: 11,
-        color: "#aaa",
-        margin: "4px 0 0",
-        lineHeight: 1.5,
-    },
-    logTitle: {
-        fontSize: 11,
-        fontWeight: 700,
-        color: "#aaa",
-        letterSpacing: 0.8,
-        textTransform: "uppercase" as const,
-        marginBottom: 10,
-    },
-    table: {
-        width: "100%",
-        borderCollapse: "collapse" as const,
-        fontSize: 14,
-    },
-    th: {
-        textAlign: "left" as const,
-        fontWeight: 600,
-        color: "#bbb",
-        fontSize: 11,
-        letterSpacing: 0.5,
-        paddingBottom: 8,
-        borderBottom: "1px solid #f0ede8",
-    },
-    td: {
-        padding: "10px 0",
-        color: "#444",
-        borderBottom: "1px solid #f8f6f2",
-        fontSize: 14,
-    },
-    approvedBadge: {
-        background: "#f0fdf4",
-        color: "#16a34a",
-        fontSize: 12,
-        fontWeight: 600,
-        padding: "3px 10px",
-        borderRadius: 20,
-        border: "1px solid #bbf7d0",
-    },
-    submitRow: {
-        display: "flex",
-        justifyContent: "center",
-        marginTop: 28,
-    },
-    submitBtn: {
-        background: "#1a1a2e",
-        color: "#fff",
-        border: "none",
-        borderRadius: 40,
-        padding: "13px 52px",
-        fontSize: 15,
-        fontWeight: 600,
-        cursor: "pointer",
-        letterSpacing: 0.3,
-        transition: "all 0.25s",
-        boxShadow: "0 4px 16px rgba(26,26,46,0.18)",
-    },
-    submitBtnSuccess: {
-        background: "#16a34a",
-        boxShadow: "0 4px 16px rgba(22,163,74,0.25)",
-    },
-};
-
-const cssAnimations = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
-  input:focus, select:focus, textarea:focus {
-    border-bottom-color: #6366f1 !important;
-  }
-  button:hover {
-    opacity: 0.88;
-    transform: translateY(-1px);
-  }
-`;
