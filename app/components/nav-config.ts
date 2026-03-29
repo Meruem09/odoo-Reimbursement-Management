@@ -1,11 +1,11 @@
 import {
   LayoutDashboard,
-  Receipt,
   Users,
-  Settings,
-  Building2,
+  GitMerge,
+  Receipt,
+  FileCheck,
   FileText,
-  ChartBar,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -41,50 +41,30 @@ export const navGroups: NavGroup[] = [
         icon: LayoutDashboard,
       },
       {
-        title: "Analytics",
-        href: "/dashboard/analytics",
-        icon: ChartBar,
+        title: "Employees",
+        href: "/dashboard/employees",
+        icon: Users,
       },
-    ],
-  },
-  {
-    title: "Reimbursements",
-    items: [
       {
-        title: "My Requests",
-        href: "/dashboard/requests",
+        title: "Approval Chains",
+        href: "/dashboard/approval-chains",
+        icon: GitMerge,
+      },
+      {
+        title: "Expenses",
+        href: "/dashboard/expenses",
         icon: Receipt,
-        children: [
-          { title: "Pending", href: "/dashboard/requests/pending" },
-          { title: "Approved", href: "/dashboard/requests/approved" },
-          { title: "Rejected", href: "/dashboard/requests/rejected" },
-        ],
+      },
+      {
+        title: "Approvals",
+        href: "/dashboard/approvals",
+        icon: FileCheck,
       },
       {
         title: "Reports",
         href: "/dashboard/reports",
         icon: FileText,
       },
-    ],
-  },
-  {
-    title: "Organisation",
-    items: [
-      {
-        title: "Team",
-        href: "/dashboard/team",
-        icon: Users,
-      },
-      {
-        title: "Company",
-        href: "/dashboard/company",
-        icon: Building2,
-      },
-    ],
-  },
-  {
-    title: "System",
-    items: [
       {
         title: "Settings",
         href: "/dashboard/settings",

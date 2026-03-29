@@ -43,10 +43,10 @@ export default function DashboardPage() {
       <main className="flex-1 overflow-y-auto p-6">
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { label: "Pending Requests", value: "0" },
-            { label: "Approved This Month", value: "0" },
-            { label: "Total Reimbursed", value: "$0" },
-            { label: "Team Members", value: "0" },
+            { label: "Pending Approvals", value: "0" },
+            { label: "Total Expenses (This Month)", value: "$0" },
+            { label: "Approved (This Month)", value: "0" },
+            { label: "Total Employees", value: "0" },
           ].map((stat) => (
             <div
               key={stat.label}
