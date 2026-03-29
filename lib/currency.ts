@@ -56,3 +56,29 @@ export async function getCurrencyForCountry(
     name: info.name ?? code,
   };
 }
+
+/**
+ * Converts any currency amount to INR using the public exchangerate-api.com v4 endpoint.
+ */
+export async function convertToINR(amount: number, fromCurrency: string): Promise<number> {
+  if (fromCurrency === "INR") return amount;
+
+  const staticRates: Record<string, number> = {
+    "USD": 83.5, "EUR": 90.2, "GBP": 105.8, "JPY": 0.55, "AED": 22.7, "SGD": 62.1
+  };
+  const fallbackRate = staticRates[fromCurrency] || 80;
+
+  try {
+    const res = await fetch(`https://api.exchangerate-api.com/v4/latest/${fromCurrency}`, {
+      next: { revalidate: 3600 }, // Cache rates for 1 hour
+    });
+
+    if (!res.ok) throw new Error("Exchange API error");
+    const data = await res.json();
+    const rate = data.rates["INR"];
+    return amount * rate;
+  } catch (error) {
+    console.error("Currency conversion error:", error);
+    return amount * fallbackRate;
+  }
+}

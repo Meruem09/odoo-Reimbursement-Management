@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { ChevronRight, ChevronsUpDown, LogOut, PanelLeft, Sparkles } from "lucide-react";
+import { ChevronRight, ChevronsUpDown, LogOut, PanelLeft, Sparkles, Command } from "lucide-react";
 
 import { useAuth } from "@/app/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,13 +40,25 @@ import { cn } from "@/app/lib/utils";
 // ─── App Sidebar ───────────────────────────────────────────
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const { open } = useSidebar();
 
   return (
     <Sidebar>
-      {/* Header: collapse trigger only */}
       <SidebarHeader>
-        <div className="flex w-full items-center p-2">
-          <SidebarTrigger />
+        <div className="flex h-12 w-full items-center px-2">
+          <div 
+            className={cn(
+              "flex items-center gap-3 overflow-hidden transition-all duration-200", 
+              open ? "w-full opacity-100" : "w-0 opacity-0"
+            )}
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Command className="h-5 w-5" />
+            </div>
+            <span className="font-bold text-base truncate whitespace-nowrap">Approvia</span>
+          </div>
+          <SidebarTrigger className={cn("shrink-0", open ? "ml-auto" : "mx-auto")} />
         </div>
       </SidebarHeader>
 
@@ -59,6 +71,8 @@ export function AppSidebar() {
             )}
             <SidebarMenu>
               {group.items.map((item) => {
+                if (item.adminOnly && user?.role !== "ADMIN") return null;
+
                 const isActive =
                   pathname === item.href ||
                   pathname.startsWith(item.href + "/");
@@ -78,10 +92,10 @@ export function AppSidebar() {
                           <SidebarMenuButton
                             tooltip={item.title}
                             isActive={isActive}
+                            icon={Icon && <Icon className="h-4 w-4" />}
                           >
-                            {Icon && <Icon className="h-4 w-4" />}
-                            <span className="text-sm font-medium">{item.title}</span>
-                            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                            <span className="text-sm font-medium flex-1 text-left">{item.title}</span>
+                            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 shrink-0" />
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
                       ) : (
@@ -89,10 +103,9 @@ export function AppSidebar() {
                           href={item.href}
                           tooltip={item.title}
                           isActive={isActive}
+                          icon={Icon && <Icon className="h-4 w-4 shrink-0" />}
                         >
-                          {Icon && <Icon className="h-4 w-4" />}
-                          <span className="text-sm font-medium">{item.title}</span>
-                          <ChevronRight className="ml-auto opacity-40 hover:opacity-100" />
+                          <span className="text-sm font-medium flex-1 text-left truncate">{item.title}</span>
                         </SidebarMenuButton>
                       )}
 
@@ -136,7 +149,7 @@ function UserFooterItem() {
   const { user, logout } = useAuth();
   
   const displayName = user?.name || "User Account";
-  const displayEmail = user?.email || "user@example.com";
+  const displayRole = user?.role || "Employee";
   // fallback initials
   const initials = displayName.substring(0, 2).toUpperCase();
 
@@ -165,17 +178,17 @@ function UserFooterItem() {
             <span className="text-sm font-medium truncate text-sidebar-foreground">
               {displayName}
             </span>
-            <span className="text-xs text-sidebar-foreground/60 truncate">
-              {displayEmail}
+            <span className="text-xs text-sidebar-foreground/60 truncate capitalize">
+              {displayRole.toLowerCase()}
             </span>
           </div>
           
-          <ChevronsUpDown className={cn("ml-auto h-4 w-4 shrink-0 transition-opacity", open ? "opacity-50" : "opacity-0")} />
+          <ChevronsUpDown className={cn("ml-auto h-4 w-4 shrink-0 transition-opacity text-sidebar-foreground/50", open ? "opacity-100" : "opacity-0")} />
         </button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg shadow-lg"
+        className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg shadow-lg border-sidebar-border"
         side="bottom"
         align="start"
         sideOffset={4}
@@ -190,22 +203,10 @@ function UserFooterItem() {
             </Avatar>
             <div className="grid flex-1 text-left leading-tight">
               <span className="truncate font-semibold text-sm">{displayName}</span>
-              <span className="truncate text-xs text-muted-foreground">{displayEmail}</span>
+              <span className="truncate text-xs text-muted-foreground capitalize">{displayRole.toLowerCase()}</span>
             </div>
           </div>
         </DropdownMenuLabel>
-        
-        <DropdownMenuSeparator />
-        
-        <DropdownMenuItem className="py-2 cursor-pointer">
-          <Sparkles className="mr-2 h-4 w-4" />
-          Upgrade to Pro
-        </DropdownMenuItem>
-        
-        <DropdownMenuSeparator />
-        
-        <DropdownMenuItem className="py-2 cursor-pointer">Account</DropdownMenuItem>
-        <DropdownMenuItem className="py-2 cursor-pointer">Notifications</DropdownMenuItem>
         
         <DropdownMenuSeparator />
         

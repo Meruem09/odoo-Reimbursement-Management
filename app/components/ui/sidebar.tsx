@@ -237,8 +237,8 @@ export function SidebarMenuButton({
       )}
       <span
         className={cn(
-          "truncate text-sm font-medium transition-opacity duration-200 whitespace-nowrap",
-          open ? "opacity-100 max-w-full" : "opacity-0 max-w-0 overflow-hidden"
+          "flex flex-1 items-center gap-2 transition-opacity duration-200 overflow-hidden",
+          open ? "opacity-100 max-w-full" : "opacity-0 max-w-0"
         )}
       >
         {children}

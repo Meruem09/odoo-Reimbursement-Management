@@ -1,39 +1,50 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { generatePasswordToken } from "@/lib/token";
-import { sendPasswordResetEmail } from "@/lib/email";
+import { NextResponse } from 'next/server';
+import crypto from 'crypto';
+import { prisma } from '@/lib/prisma';
+import { sendPasswordResetEmail } from '@/lib/email';
 
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const body = (await request.json().catch(() => null)) as {
-      email?: string;
-    } | null;
+    const { email } = await req.json();
 
-    if (!body?.email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    const email = body.email.trim().toLowerCase();
-
-    // Always respond 200 — never reveal whether the email exists
-    const user = await prisma.user.findUnique({ where: { email } });
-
-    if (user && user.isActive) {
-      try {
-        const raw = await generatePasswordToken(user.id, "RESET");
-        await sendPasswordResetEmail(email, raw);
-      } catch (err) {
-        // Log but don't surface to client
-        console.error("[forgot-password] token/email error:", err);
-      }
-    }
-
-    return NextResponse.json({
-      message:
-        "If an account with that email exists, a password reset link has been sent.",
+    const user = await prisma.user.findUnique({
+      where: { email }
     });
-  } catch (err) {
-    console.error("[forgot-password]", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+
+    if (!user) {
+      // For security, don't reveal if user exists, just return ok.
+      return NextResponse.json({ message: 'If an account exists, a reset link was sent.' }, { status: 200 });
+    }
+
+    // Generate token
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Token valid for 1 hour
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        type: 'RESET',
+        expiresAt,
+      }
+    });
+
+    // Create absolute URL for front-end client reset link
+    const resetUrl = new URL(`/reset-password?token=${token}`, process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').toString();
+
+    // Send email asynchronously
+    sendPasswordResetEmail(email, resetUrl);
+
+    return NextResponse.json({ message: 'If an account exists, a reset link was sent.' }, { status: 200 });
+  } catch (error) {
+    console.error('Failed to process forgot password', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

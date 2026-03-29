@@ -42,9 +42,44 @@ export default function ExpenseForm() {
         if (e.target.files?.[0]) setReceiptName(e.target.files[0].name);
     };
 
-    const handleSubmit = () => {
-        setSubmitted(true);
-        setTimeout(() => setSubmitted(false), 2500);
+    const handleSubmit = async () => {
+        if (!description || !category || !expenseDate || !amount) {
+            alert("Please fill required fields (Description, Date, Category, Amount)");
+            return;
+        }
+
+        try {
+            const res = await fetch("/api/expenses", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                    description,
+                    category,
+                    expenseDate,
+                    currency,
+                    amount,
+                    remarks,
+                }),
+            });
+
+            if (res.ok) {
+                setSubmitted(true);
+                setTimeout(() => {
+                    setSubmitted(false);
+                    setDescription("");
+                    setCategory("");
+                    setExpenseDate("");
+                    setAmount("");
+                    setRemarks("");
+                }, 2500);
+            } else {
+                const data = await res.json();
+                alert(`Error: ${data.error}`);
+            }
+        } catch (e: any) {
+            alert(`Error: ${e.message}`);
+        }
     };
 
     return (

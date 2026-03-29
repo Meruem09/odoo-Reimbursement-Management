@@ -15,6 +15,7 @@ export type NavItem = {
   icon: LucideIcon;
   label?: string;
   isActive?: boolean;
+  adminOnly?: boolean;
   children?: NavSubItem[];
 };
 
@@ -44,11 +45,13 @@ export const navGroups: NavGroup[] = [
         title: "Employees",
         href: "/dashboard/employees",
         icon: Users,
+        adminOnly: true,
       },
       {
         title: "Approval Chains",
         href: "/dashboard/approval-chains",
         icon: GitMerge,
+        adminOnly: true,
       },
       {
         title: "Expenses",
@@ -59,16 +62,6 @@ export const navGroups: NavGroup[] = [
         title: "Approvals",
         href: "/dashboard/approvals",
         icon: FileCheck,
-      },
-      {
-        title: "Reports",
-        href: "/dashboard/reports",
-        icon: FileText,
-      },
-      {
-        title: "Settings",
-        href: "/dashboard/settings",
-        icon: Settings,
       },
     ],
   },
