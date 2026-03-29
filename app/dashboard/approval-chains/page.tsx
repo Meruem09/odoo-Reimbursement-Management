@@ -1,272 +1,260 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/app/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
-// ─── Rule Builder Component ──────────────────────────────────────────────
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  managerId: string | null;
+  manager: { name: string } | null;
+}
+
 interface ApproverStep {
   id: string;
-  sequence: number;
-  role: string;
-  approverId: string;
+  userId: string;
+  isRequired: boolean;
 }
 
-function RuleBuilder() {
-  const [ruleName, setRuleName] = useState('');
-  const [targetLevel, setTargetLevel] = useState('company'); 
-  const [isManagerFirst, setIsManagerFirst] = useState(false);
-  const [ruleType, setRuleType] = useState('percentage'); 
-  const [thresholdPct, setThresholdPct] = useState(60);
-  const [specificApprover, setSpecificApprover] = useState('');
-  
-  const [steps, setSteps] = useState<ApproverStep[]>([
-    { id: '1', sequence: 1, role: 'Finance', approverId: '' }
+export default function ApprovalChainsPage() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  // ─── Rule State ────────────────────────────────────────────────────────
+  const [targetUserId, setTargetUserId] = useState('');
+  const [description, setDescription] = useState('');
+  const [managerId, setManagerId] = useState('');
+
+  const [isManagerApprover, setIsManagerApprover] = useState(false);
+  const [isSequential, setIsSequential] = useState(false);
+  const [minPercentage, setMinPercentage] = useState<number | ''>('');
+
+  const [approvers, setApprovers] = useState<ApproverStep[]>([
+    { id: '1', userId: '', isRequired: false }
   ]);
 
-  const addStep = () => {
-    setSteps([...steps, { id: Date.now().toString(), sequence: steps.length + 1, role: '', approverId: '' }]);
+  // Handle Authentication Validation
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (user.role !== 'ADMIN') {
+        router.push('/dashboard');
+      }
+    }
+  }, [authLoading, user, router]);
+
+  // Load Employees
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/employees');
+        if (res.ok) {
+          setEmployees(await res.json());
+        }
+      } catch (e) {
+        console.error('Failed to load employees', e);
+      }
+    }
+    load();
+  }, []);
+
+  // When target user changes, set the manager by default
+  useEffect(() => {
+    if (targetUserId) {
+      const selectedUser = employees.find(e => e.id === targetUserId);
+      if (selectedUser && selectedUser.managerId) {
+        setManagerId(selectedUser.managerId);
+      } else {
+        setManagerId('');
+      }
+    }
+  }, [targetUserId, employees]);
+
+  // Prevent flash while checking auth
+  if (authLoading || !user || user.role !== 'ADMIN') return null;
+
+  // Helpers for Approvers array
+  const addApprover = () => {
+    setApprovers([...approvers, { id: Date.now().toString(), userId: '', isRequired: false }]);
   };
-
-  const removeStep = (id: string) => {
-    const newSteps = steps.filter(s => s.id !== id).map((s, idx) => ({ ...s, sequence: idx + 1 }));
-    setSteps(newSteps);
+  const updateApproverId = (id: string, newUserId: string) => {
+    setApprovers(approvers.map(a => a.id === id ? { ...a, userId: newUserId } : a));
   };
-
-  const updateStep = (id: string, field: keyof ApproverStep, value: string) => {
-    setSteps(steps.map(s => s.id === id ? { ...s, [field]: value } : s));
+  const updateApproverReq = (id: string, isReq: boolean) => {
+    setApprovers(approvers.map(a => a.id === id ? { ...a, isRequired: isReq } : a));
   };
-
-  return (
-    <div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 mb-8">
-        <div className="flex flex-col gap-1.5 border-0">
-          <label className="text-xs font-semibold text-[#888] tracking-[0.4px] uppercase flex items-center gap-1.5">Rule Name</label>
-          <input 
-            type="text" 
-            value={ruleName} 
-            onChange={e => setRuleName(e.target.value)} 
-            placeholder="e.g. Standard Expenses" 
-            className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[15px] text-[#1a1a2e] py-2 px-1 outline-none transition-colors focus:border-[#6366f1]"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5 border-0">
-          <label className="text-xs font-semibold text-[#888] tracking-[0.4px] uppercase flex items-center gap-1.5">Apply for</label>
-          <select 
-            value={targetLevel} 
-            onChange={e => setTargetLevel(e.target.value)}
-            className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[15px] text-[#1a1a2e] py-2 px-1 appearance-none outline-none cursor-pointer focus:border-[#6366f1] bg-no-repeat bg-[right_4px_center]"
-            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E")` }}
-          >
-            <option value="company">Entire Company</option>
-            <option value="department">Specific Department</option>
-            <option value="cost_center">Cost Center</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="h-[1px] bg-[#f0ede8] mx-[-4px] mb-8" />
-
-      <p className="text-[11px] font-bold text-[#aaa] tracking-[0.8px] uppercase mb-4">Approvers Sequence</p>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr>
-              <th className="text-left font-semibold text-[#bbb] text-[11px] tracking-[0.5px] pb-2 border-b border-[#f0ede8] w-[60px]">Seq #</th>
-              <th className="text-left font-semibold text-[#bbb] text-[11px] tracking-[0.5px] pb-2 border-b border-[#f0ede8]">Role Category</th>
-              <th className="text-left font-semibold text-[#bbb] text-[11px] tracking-[0.5px] pb-2 border-b border-[#f0ede8]">Specific Approver (Optional)</th>
-              <th className="text-left font-semibold text-[#bbb] text-[11px] tracking-[0.5px] pb-2 border-b border-[#f0ede8] w-[80px]">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {steps.map(step => (
-              <tr key={step.id}>
-                <td className="py-2.5 text-[#444] border-b border-[#f8f6f2] text-sm font-semibold">{step.sequence}</td>
-                <td className="py-2.5 px-2 border-b border-[#f8f6f2]">
-                  <input 
-                    type="text" 
-                    value={step.role} 
-                    onChange={e => updateStep(step.id, 'role', e.target.value)} 
-                    placeholder="e.g. Finance" 
-                    className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[15px] text-[#1a1a2e] py-1 px-1 outline-none transition-colors focus:border-[#6366f1]"
-                  />
-                </td>
-                <td className="py-2.5 px-2 border-b border-[#f8f6f2]">
-                  <select 
-                    value={step.approverId} 
-                    onChange={e => updateStep(step.id, 'approverId', e.target.value)}
-                    className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[14px] text-[#1a1a2e] py-1 px-1 appearance-none outline-none cursor-pointer focus:border-[#6366f1] bg-no-repeat bg-[right_4px_center]"
-                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E")` }}
-                  >
-                    <option value="">-- Any in Role --</option>
-                    <option value="u1">Alice (CFO)</option>
-                    <option value="u2">Bob (Director)</option>
-                  </select>
-                </td>
-                <td className="py-2.5 border-b border-[#f8f6f2]">
-                  <button className="text-[#ef4444] text-[13px] font-semibold hover:opacity-80 transition-opacity" onClick={() => removeStep(step.id)}>Remove</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="mt-5 mb-10">
-        <button 
-          className="flex items-center gap-2 bg-[#f5f3ef] border-[1.5px] border-dashed border-[#c9c5bc] rounded-lg px-4 py-2 text-[13px] font-medium text-[#555] hover:bg-[#ebe9e4] transition-colors"
-          onClick={addStep}
-        >
-          <span className="text-base">+</span> Add Approver Step
-        </button>
-      </div>
-
-      <div className="h-[1px] bg-[#f0ede8] mx-[-4px] mb-8" />
-
-      <p className="text-[11px] font-bold text-[#aaa] tracking-[0.8px] uppercase mb-2">Dynamic Conditions</p>
-      <p className="text-[12px] text-[#888] mb-4">Determine how the rule logic evaluates the sequence above.</p>
-
-      <div className="bg-[#faf9f6] border border-[#f0ede8] rounded-[16px] p-6 mb-8">
-        <label className="flex items-center gap-3 cursor-pointer group mb-6">
-          <input 
-            type="checkbox" 
-            checked={isManagerFirst}
-            onChange={e => setIsManagerFirst(e.target.checked)}
-            className="w-4 h-4 accent-[#6366f1] cursor-pointer"
-          />
-          <span className="text-[14px] font-semibold text-[#1a1a2e] group-hover:text-[#6366f1] transition-colors">Is Employee's Direct Manager the First Approver?</span>
-        </label>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
-          <div className="flex flex-col gap-1.5 border-0">
-            <label className="text-xs font-semibold text-[#888] tracking-[0.4px] uppercase flex items-center gap-1.5">Evaluation Logic</label>
-            <select 
-              value={ruleType} 
-              onChange={e => setRuleType(e.target.value)}
-              className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[15px] text-[#1a1a2e] py-2 px-1 appearance-none outline-none cursor-pointer focus:border-[#6366f1] bg-no-repeat bg-[right_4px_center]"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E")` }}
-            >
-              <option value="fixed">Fixed Specific Manager (VIP Override)</option>
-              <option value="percentage">By Threshold Percentage (Quorum)</option>
-              <option value="hybrid">Hybrid (Either/Or)</option>
-            </select>
-          </div>
-
-          {(ruleType === 'percentage' || ruleType === 'hybrid') && (
-            <div className="flex flex-col gap-1.5 border-0">
-              <label className="text-xs font-semibold text-[#888] tracking-[0.4px] uppercase flex items-center gap-1.5">Pass Criteria (%)</label>
-              <input 
-                type="number" 
-                min="1" 
-                max="100" 
-                value={thresholdPct} 
-                onChange={e => setThresholdPct(Number(e.target.value))} 
-                className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[15px] text-[#1a1a2e] py-2 px-1 outline-none transition-colors focus:border-[#6366f1]"
-              />
-            </div>
-          )}
-
-          {(ruleType === 'fixed' || ruleType === 'hybrid') && (
-            <div className="flex flex-col gap-1.5 border-0">
-              <label className="text-xs font-semibold text-[#888] tracking-[0.4px] uppercase flex items-center gap-1.5">Specific VIP Approver</label>
-              <select 
-                value={specificApprover} 
-                onChange={e => setSpecificApprover(e.target.value)}
-                className="w-full border-b-[1.5px] border-[#e0ddd8] bg-transparent text-[15px] text-[#1a1a2e] py-2 px-1 appearance-none outline-none cursor-pointer focus:border-[#6366f1] bg-no-repeat bg-[right_4px_center]"
-                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E")` }}
-              >
-                <option value="">-- Select VIP --</option>
-                <option value="u1">Alice (CFO)</option>
-              </select>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="flex justify-end mt-7">
-        <button 
-          className="bg-[#1a1a2e] text-white rounded-[40px] px-[42px] py-[13px] text-[15px] font-semibold shadow-[0_4px_16px_rgba(26,26,46,0.18)] hover:-translate-y-[1px] hover:opacity-[0.88] transition-all duration-250 cursor-pointer tracking-[0.3px]"
-          onClick={() => alert('Rule Saved!')}
-        >
-          Save Approval Rule
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── User Management Component ───────────────────────────────────────────
-function UserManagement() {
-  const users = [
-    { id: '1', name: 'John Employee', role: 'Employee', manager: 'Jane Manager' },
-    { id: '2', name: 'Jane Manager', role: 'Manager', manager: 'Alice CFO' },
-    { id: '3', name: 'Alice CFO', role: 'Admin', manager: '-' },
-  ];
-
-  return (
-    <div>
-      <p className="text-[11px] font-bold text-[#aaa] tracking-[0.8px] uppercase mb-4">User & Hierarchy</p>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr>
-              <th className="text-left font-semibold text-[#bbb] text-[11px] tracking-[0.5px] pb-2 border-b border-[#f0ede8]">Name</th>
-              <th className="text-left font-semibold text-[#bbb] text-[11px] tracking-[0.5px] pb-2 border-b border-[#f0ede8]">Role</th>
-              <th className="text-left font-semibold text-[#bbb] text-[11px] tracking-[0.5px] pb-2 border-b border-[#f0ede8]">Direct Manager</th>
-              <th className="text-left font-semibold text-[#bbb] text-[11px] tracking-[0.5px] pb-2 border-b border-[#f0ede8] w-[80px]">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id}>
-                <td className="py-3 text-[#1a1a2e] font-semibold border-b border-[#f8f6f2] text-sm">{u.name}</td>
-                <td className="py-3 text-[#444] border-b border-[#f8f6f2] text-sm">
-                  <span className="bg-[#f0ede8] text-[#555] text-xs font-semibold px-2.5 py-[3px] rounded-[12px]">{u.role}</span>
-                </td>
-                <td className="py-3 text-[#444] border-b border-[#f8f6f2] text-sm">{u.manager}</td>
-                <td className="py-3 border-b border-[#f8f6f2]">
-                  <button className="text-[#6366f1] text-[13px] font-semibold hover:opacity-80 transition-opacity">Edit</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Exported Page ──────────────────────────────────────────────────
-export default function ApprovalChainsPage() {
-  const [activeTab, setActiveTab] = useState<'rules' | 'users'>('rules');
+  const removeApprover = (id: string) => {
+    setApprovers(approvers.filter(a => a.id !== id));
+  };
 
   return (
     <div className="min-h-screen bg-[#faf9f6] flex items-start justify-center font-sans p-6 md:p-8">
-      <div className="bg-white rounded-[20px] shadow-[0_2px_32px_rgba(0,0,0,0.07),0_1px_4px_rgba(0,0,0,0.04)] p-8 md:p-10 w-full max-w-[900px] border border-[#ebebeb] mt-6">
-        
-        <div className="mb-8">
-          <h1 className="text-[26px] font-bold text-[#1a1a2e] mb-2">Admin Dashboard</h1>
-          <p className="text-[14px] text-[#888]">Manage organizational approval structures and reporting hierarchies.</p>
+      <div className="bg-white rounded-[20px] shadow-[0_2px_32px_rgba(0,0,0,0.07),0_1px_4px_rgba(0,0,0,0.04)] p-8 md:p-12 w-full max-w-[1240px] mt-2 border border-[#ebebeb]">
+
+        <h1 className="text-[26px] font-bold tracking-wide mb-12 text-[#1a1a2e]">
+          Admin view (Approval rules)
+        </h1>
+
+        <div className="flex flex-col lg:flex-row gap-16 lg:gap-24 relative">
+
+          {/* Divider Line on Desktop */}
+          <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#f0ede8] -translate-x-1/2" />
+
+          {/* ────────────────────────────────────────────────────────
+              LEFT COLUMN 
+          ──────────────────────────────────────────────────────── */}
+          <div className="flex-1 flex flex-col gap-10">
+
+            {/* User Row */}
+            <div className="flex items-end gap-6 group">
+              <label className="text-[15px] font-semibold text-[#888] tracking-[0.4px] uppercase min-w-[100px] pb-1">User</label>
+              <select
+                value={targetUserId}
+                onChange={(e) => setTargetUserId(e.target.value)}
+                className="flex-1 bg-transparent border-b-[1.5px] border-[#e0ddd8] text-[15px] text-[#1a1a2e] py-1 outline-none transition-colors focus:border-[#6366f1] appearance-none cursor-pointer placeholder-[#aaa]"
+              >
+                <option value="">-- Select target user --</option>
+                {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </select>
+            </div>
+
+            {/* Description Row */}
+            <div className="flex flex-col gap-1.5 mt-4">
+              <label className="text-[15px] font-semibold text-[#888] tracking-[0.4px] uppercase">Description about rules</label>
+              <input
+                type="text"
+                placeholder="Approval rule for miscellaneous expenses"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full bg-transparent border-b-[1.5px] border-[#e0ddd8] text-[15px] text-[#1a1a2e] py-1 outline-none transition-colors focus:border-[#6366f1] placeholder-[#aaa]"
+              />
+            </div>
+
+            {/* Manager Row */}
+            <div className="flex items-end gap-6 relative mt-4">
+              <label className="text-[15px] font-semibold text-[#888] tracking-[0.4px] uppercase min-w-[100px] mb-[-4px]">Manager</label>
+              <select
+                value={managerId}
+                onChange={(e) => setManagerId(e.target.value)}
+                className="flex-1 bg-transparent border-b-[1.5px] border-[#e0ddd8] text-[15px] text-[#1a1a2e] py-1 outline-none transition-colors focus:border-[#6366f1] appearance-none cursor-pointer placeholder-[#aaa]"
+              >
+                <option value="">-- Select override manager --</option>
+                {employees.filter(e => e.role === 'MANAGER' || e.role === 'ADMIN').map(mgr => (
+                  <option key={mgr.id} value={mgr.id}>{mgr.name}</option>
+                ))}
+              </select>
+
+            </div>
+
+          </div>
+
+
+          {/* ────────────────────────────────────────────────────────
+              RIGHT COLUMN 
+          ──────────────────────────────────────────────────────── */}
+          <div className="flex-1 flex flex-col pt-2">
+
+            {/* Is manager approver */}
+            <div className="flex items-start mb-8 relative">
+              <div className="flex items-center gap-6">
+                <h2 className="text-[15px] font-bold text-[#aaa] tracking-[0.8px] uppercase border-b border-[#f0ede8] pb-1 pr-12 min-w-[200px]">Approvers</h2>
+                <label className="text-[14px] text-[#1a1a2e] whitespace-nowrap pt-1">Is manager an approver?</label>
+                <input
+                  type="checkbox"
+                  checked={isManagerApprover}
+                  onChange={e => setIsManagerApprover(e.target.checked)}
+                  className="w-5 h-5 rounded-[4px] border-[1.5px] border-[#c0bdd8] accent-[#6366f1] appearance-none cursor-pointer relative checked:bg-[#6366f1] checked:border-[#6366f1] checked:after:content-['✓'] checked:after:text-white checked:after:absolute checked:after:text-sm checked:after:-top-[1px] checked:after:left-[2.5px]"
+                />
+              </div>
+            </div>
+
+            {/* Approvers Table */}
+            <div className="mb-12 w-full pr-10">
+              <div className="flex w-full mb-3 px-8 text-[11px] font-bold text-[#aaa] tracking-[0.8px] uppercase">
+                <div className="flex-1">User</div>
+                <div className="w-[100px] text-center">Required</div>
+              </div>
+
+              <div className="flex flex-col gap-5">
+                {approvers.map((appr, index) => (
+                  <div key={appr.id} className="flex items-center gap-5 relative group">
+                    <span className="text-[15px] text-[#888] font-bold w-4 text-center mt-1">{index + 1}</span>
+                    <select
+                      value={appr.userId}
+                      onChange={e => updateApproverId(appr.id, e.target.value)}
+                      className="flex-1 bg-transparent border-b-[1.5px] border-[#e0ddd8] text-[15px] text-[#1a1a2e] py-1 outline-none transition-colors focus:border-[#6366f1] appearance-none cursor-pointer"
+                    >
+                      <option value="">- Select manager -</option>
+                      {employees.filter(e => e.role === 'MANAGER' || e.role === 'ADMIN').map(e => <option key={e.id} value={e.id}>{e.name} ({e.role})</option>)}
+                    </select>
+
+                    <div className="w-[100px] flex justify-center items-center">
+                      <input
+                        type="checkbox"
+                        checked={appr.isRequired}
+                        onChange={e => updateApproverReq(appr.id, e.target.checked)}
+                        className="w-[44px] h-[24px] rounded-[12px] border-[1.5px] border-[#c0bdd8] accent-[#6366f1] appearance-none cursor-pointer relative checked:bg-[#6366f1] checked:border-[#6366f1] checked:after:content-['✓'] checked:after:text-white checked:after:absolute checked:after:text-lg checked:after:left-[14px] checked:after:-top-[2px]"
+                      />
+                    </div>
+
+
+                    <button onClick={() => removeApprover(appr.id)} className="text-[#aaa] hover:text-[#ef4444] absolute -left-10 text-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button onClick={addApprover} className="mt-6 text-[13px] font-semibold text-[#888] hover:text-[#1a1a2e] transition-colors tracking-[0.4px] uppercase ml-8 flex items-center gap-2">
+                <span className="text-lg leading-none">+</span> Add another approver
+              </button>
+            </div>
+
+            {/* Approvers Sequence */}
+            <div className="flex flex-col mb-10">
+              <div className="flex items-center gap-4">
+                <label className="text-[15px] font-semibold text-[#888] tracking-[0.4px] uppercase">Approvers Sequence:</label>
+                <input
+                  type="checkbox"
+                  checked={isSequential}
+                  onChange={e => setIsSequential(e.target.checked)}
+                  className="w-5 h-5 rounded-[4px] border-[1.5px] border-[#c0bdd8] accent-[#6366f1] appearance-none cursor-pointer relative checked:bg-[#6366f1] checked:border-[#6366f1] checked:after:content-['✓'] checked:after:text-white checked:after:absolute checked:after:text-sm checked:after:-top-[1px] checked:after:left-[2.5px]"
+                />
+              </div>
+            </div>
+
+            {/* Minimum Approval Percentage */}
+            <div className="flex items-end gap-3 mt-4">
+              <label className="text-[15px] font-semibold text-[#888] tracking-[0.4px] uppercase mb-1">Minimum Approval percentage:</label>
+              <div className="flex items-end gap-2 w-[80px]">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={minPercentage}
+                  onChange={e => setMinPercentage(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="flex-1 bg-transparent border-b-[1.5px] border-[#e0ddd8] text-center text-[15px] text-[#1a1a2e] py-1 outline-none transition-colors focus:border-[#6366f1] placeholder-[#aaa]"
+                />
+                <span className="text-[15px] text-[#1a1a2e] mb-1">%</span>
+              </div>
+            </div>
+
+          </div>
         </div>
-        
-        <div className="flex gap-3 mb-8">
-          <button 
-            className={`rounded-[40px] px-[24px] py-[10px] text-[14px] transition-all duration-200 ${activeTab === 'rules' ? 'bg-[#1a1a2e] text-white font-semibold shadow-[0_4px_16px_rgba(26,26,46,0.18)]' : 'bg-[#f5f3ef] border border-[#c9c5bc] text-[#555] font-medium hover:bg-[#ebe9e4]'}`}
-            onClick={() => setActiveTab('rules')}
+
+        {/* Save button matching layout style */}
+        <div className="mt-16 flex justify-end">
+          <button
+            className="bg-[#1a1a2e] text-white px-[42px] py-[13px] rounded-[40px] text-[15px] font-semibold tracking-[0.3px] transition-all duration-250 hover:-translate-y-[1px] hover:opacity-[0.88] shadow-[0_4px_16px_rgba(26,26,46,0.18)]"
+            onClick={() => alert('Approval rule saved configuration!')}
           >
-            Approval Rules
-          </button>
-          <button 
-            className={`rounded-[40px] px-[24px] py-[10px] text-[14px] transition-all duration-200 ${activeTab === 'users' ? 'bg-[#1a1a2e] text-white font-semibold shadow-[0_4px_16px_rgba(26,26,46,0.18)]' : 'bg-[#f5f3ef] border border-[#c9c5bc] text-[#555] font-medium hover:bg-[#ebe9e4]'}`}
-            onClick={() => setActiveTab('users')}
-          >
-            User Management
+            Save Configuration
           </button>
         </div>
 
-        <div className="h-[1px] bg-[#f0ede8] mx-[-4px] mb-8" />
-
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-          {activeTab === 'rules' && <RuleBuilder />}
-          {activeTab === 'users' && <UserManagement />}
-        </div>
       </div>
     </div>
   );

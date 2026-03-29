@@ -15,6 +15,7 @@ export type NavItem = {
   icon: LucideIcon;
   label?: string;
   isActive?: boolean;
+  adminOnly?: boolean;
   children?: NavSubItem[];
 };
 
@@ -49,6 +50,7 @@ export const navGroups: NavGroup[] = [
         title: "Approval Chains",
         href: "/dashboard/approval-chains",
         icon: GitMerge,
+        adminOnly: true,
       },
       {
         title: "Expenses",

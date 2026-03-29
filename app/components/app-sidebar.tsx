@@ -40,6 +40,7 @@ import { cn } from "@/app/lib/utils";
 // ─── App Sidebar ───────────────────────────────────────────
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
 
   return (
     <Sidebar>
@@ -59,6 +60,8 @@ export function AppSidebar() {
             )}
             <SidebarMenu>
               {group.items.map((item) => {
+                if (item.adminOnly && user?.role !== "ADMIN") return null;
+
                 const isActive =
                   pathname === item.href ||
                   pathname.startsWith(item.href + "/");

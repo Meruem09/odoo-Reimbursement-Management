@@ -1,8 +1,89 @@
-export default function ApprovalsPage() {
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { ACCESS_TOKEN_COOKIE } from "@/lib/session-cookies";
+import { verifyAccessToken } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import ApprovalsClient from "./client";
+
+export default async function ApprovalsPage() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
+
+  if (!token) {
+    redirect("/signIn");
+  }
+
+  let userId: string;
+  try {
+    const act = await verifyAccessToken(token);
+    userId = act.sub;
+  } catch (err) {
+    redirect("/signIn");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      company: true,
+      employees: true, // "My Team"
+    },
+  });
+
+  if (!user || (user.role !== "MANAGER" && user.role !== "ADMIN")) {
+    return (
+      <div className="p-8 text-center text-muted-foreground mt-20">
+        You do not have permission to view approvals.
+      </div>
+    );
+  }
+
+  // Fetch all pending / history expenses under this manager's domain
+  // For the sake of the hackathon demo, we'll fetch all expenses of employees that report to this manager
+  const teamMemberIds = user.employees.map(e => e.id);
+  const expensesRaw = await prisma.expense.findMany({
+    where: {
+      submittedById: { in: teamMemberIds },
+      status: { not: "DRAFT" }
+    },
+    include: {
+      submittedBy: true,
+      approvalActions: true
+    },
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
+
+  // Serialize and prepare
+  const expenses = expensesRaw.map((e) => {
+    return {
+      id: e.id,
+      employee: e.submittedBy.name,
+      dept: "Unknown", // Add custom if needed
+      category: e.category,
+      desc: e.title || e.description || "",
+      date: e.expenseDate.toISOString().split("T")[0],
+      display: `${e.currency} ${e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      amount: e.amount,
+      status: e.status === "PENDING" || e.status === "IN_REVIEW" ? "pending" : (e.status === "APPROVED" ? "approved" : "rejected"),
+      step: e.currentStepOrder > 0 ? `Step ${e.currentStepOrder}` : "Waiting Approval",
+      receipt: !!e.receiptUrl,
+      comment: e.approvalActions.length > 0 ? e.approvalActions[e.approvalActions.length - 1].comment || "" : ""
+    };
+  });
+
+  const teamMembers = user.employees.map((e) => {
+    const initials = e.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase();
+    return {
+      name: e.name,
+      role: e.role === "EMPLOYEE" ? "Employee" : "Manager",
+      initials
+    };
+  });
+
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-4">Approvals</h1>
-      <p className="text-muted-foreground">For Manager/Admin — the pending approval queue. What needs action right now.</p>
+    <div className="flex-1 w-full bg-[#faf9f6] min-h-screen">
+      <ApprovalsClient initialExpenses={expenses as any} teamMembers={teamMembers as any} user={user} />
     </div>
   );
 }

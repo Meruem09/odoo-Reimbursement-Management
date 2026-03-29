@@ -2,26 +2,23 @@
 
 import { useState, FormEvent } from "react";
 import Link from "next/link";
-import { forgotPasswordSchema, type ForgotPasswordFormData } from "@/app/lib/validations/auth";
 import { AuthFormWrapper, FormField } from "@/app/components/auth";
 import { Button } from "@/app/components/ui/button";
-import { Loader2, CheckCircle } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export default function ForgotPasswordPage() {
-  const [formData, setFormData] = useState<ForgotPasswordFormData>({ email: "" });
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"email", string>>>({});
-  const [globalError, setGlobalError] = useState("");
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setGlobalError("");
-    setFieldErrors({});
+    setError("");
+    setSuccess(false);
 
-    const result = forgotPasswordSchema.safeParse(formData);
-    if (!result.success) {
-      setFieldErrors({ email: result.error.issues[0]?.message });
+    if (!email) {
+      setError("Email is required");
       return;
     }
 
@@ -30,46 +27,35 @@ export default function ForgotPasswordPage() {
       const res = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: formData.email }),
+        body: JSON.stringify({ email }),
       });
+
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || "Something went wrong");
+        throw new Error(data.error || "Failed to submit request");
       }
-      setSent(true);
+
+      setSuccess(true);
     } catch (err) {
-      setGlobalError(
-        err instanceof Error ? err.message : "Failed to send reset email. Try again."
-      );
+      setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setLoading(false);
     }
   }
 
-  if (sent) {
+  if (success) {
     return (
-      <AuthFormWrapper title="Check your email">
-        <div className="flex flex-col items-center gap-3 py-4 text-center">
-          <CheckCircle className="size-12 text-green-500" />
-          <p className="text-sm text-muted-foreground">
-            If an account exists for{" "}
-            <span className="font-medium text-foreground">{formData.email}</span>,
-            a password reset link has been sent.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Didn&apos;t receive it? Check your spam folder or{" "}
-            <button
-              className="text-primary underline-offset-4 hover:underline"
-              onClick={() => setSent(false)}
-            >
-              try again
-            </button>
-            .
-          </p>
-        </div>
-        <p className="mt-4 text-center text-sm">
-          <Link href="/signIn" className="font-medium text-primary underline-offset-4 hover:underline">
-            Back to Sign In
+      <AuthFormWrapper
+        title="Check your email"
+        description="If an account exists, a password reset link has been sent to your email."
+      >
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          <Link
+            href="/signIn"
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            ← Back to sign in
           </Link>
         </p>
       </AuthFormWrapper>
@@ -78,28 +64,32 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthFormWrapper
-      title="Forgot your password?"
-      description="Enter your email and we'll send you a reset link"
-      error={globalError}
+      title="Reset your password"
+      description="Enter your email to receive a password reset link."
+      error={error}
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <FormField
           id="email"
-          label="Email"
+          label="Email Address"
           type="email"
           placeholder="you@company.com"
-          value={formData.email}
-          onChange={(v) => setFormData({ email: v })}
-          error={fieldErrors.email}
+          value={email}
+          onChange={setEmail}
           autoComplete="email"
           disabled={loading}
         />
 
-        <Button type="submit" className="w-full h-10" disabled={loading} id="forgot-btn">
+        <Button
+          type="submit"
+          className="w-full h-10"
+          disabled={loading}
+          id="reset-btn"
+        >
           {loading ? (
             <>
-              <Loader2 className="size-4 animate-spin" />
-              Sending…
+              <Loader2 className="size-4 animate-spin mr-2" />
+              Sending link…
             </>
           ) : (
             "Send Reset Link"
@@ -109,7 +99,10 @@ export default function ForgotPasswordPage() {
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Remember your password?{" "}
-        <Link href="/signIn" className="font-medium text-primary underline-offset-4 hover:underline">
+        <Link
+          href="/signIn"
+          className="font-medium text-primary underline-offset-4 hover:underline"
+        >
           Sign in
         </Link>
       </p>

@@ -1,65 +1,52 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { hashPassword } from "@/lib/auth";
-import { consumePasswordToken } from "@/lib/token";
+import { NextResponse } from 'next/server';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import { prisma } from '@/lib/prisma';
 
-const resetSchema = z
-  .object({
-    token: z.string().min(1, "Token is required"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    confirmPassword: z.string(),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
-
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const body = await request.json().catch(() => null);
-    if (!body) {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    const { token, newPassword } = await req.json();
+
+    if (!token || !newPassword) {
+      return NextResponse.json({ error: 'Token and new password required' }, { status: 400 });
+    }
+    
+    if (newPassword.length < 8) {
+      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
     }
 
-    const parsed = resetSchema.safeParse(body);
-    if (!parsed.success) {
-      const errors = parsed.error.issues.map((i) => ({
-        field: i.path[0],
-        message: i.message,
-      }));
-      return NextResponse.json({ error: "Validation failed", errors }, { status: 400 });
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const resetRecord = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true }
+    });
+
+    if (!resetRecord || resetRecord.usedAt || resetRecord.expiresAt < new Date()) {
+      return NextResponse.json({ error: 'Invalid or expired reset token' }, { status: 400 });
     }
 
-    const { token, password } = parsed.data;
+    const passwordHash = await bcrypt.hash(newPassword, 10);
 
-    let record: Awaited<ReturnType<typeof consumePasswordToken>>;
-    try {
-      record = await consumePasswordToken(token, "RESET");
-    } catch (err) {
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Invalid or expired token" },
-        { status: 400 }
-      );
-    }
-
-    const passwordHash = await hashPassword(password);
-
-    // Update password + mark token used in one transaction
+    // Update user password and mark as verified, invalidate the token
     await prisma.$transaction([
       prisma.user.update({
-        where: { id: record.userId },
-        data: { passwordHash, isPasswordSet: true },
+        where: { id: resetRecord.userId },
+        data: { 
+          passwordHash,
+          isVerified: true,
+          isPasswordSet: true,
+        }
       }),
       prisma.passwordResetToken.update({
-        where: { id: record.id },
-        data: { usedAt: new Date() },
-      }),
+        where: { id: resetRecord.id },
+        data: { usedAt: new Date() }
+      })
     ]);
 
-    return NextResponse.json({ message: "Password has been reset successfully." });
-  } catch (err) {
-    console.error("[reset-password]", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ message: 'Password reset successfully' }, { status: 200 });
+  } catch (error) {
+    console.error('Failed to reset password', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

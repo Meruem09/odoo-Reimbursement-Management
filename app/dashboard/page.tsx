@@ -4,6 +4,7 @@ import { useAuth } from "@/app/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Button } from "@/app/components/ui/button";
+import { EmployeeDashboard } from "@/app/components/dashboard/EmployeeDashboard";
 
 export default function DashboardPage() {
   const { user, loading, logout } = useAuth();
@@ -23,6 +24,12 @@ export default function DashboardPage() {
     );
   }
 
+  // Render employee dashboard for Employee role
+  if (user.role === "EMPLOYEE") {
+    return <EmployeeDashboard />;
+  }
+
+  // Render Admin/Manager dashboard otherwise
   return (
     <div className="flex flex-col h-full">
       {/* Top header bar */}
