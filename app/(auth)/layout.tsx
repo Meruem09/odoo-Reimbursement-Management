@@ -1,9 +1,11 @@
-import { AuthLayout } from "@/app/components/auth";
-
 export default function AuthGroupLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    return <AuthLayout>{children}</AuthLayout>;
+    return (
+        <div className="min-h-screen flex bg-white">
+            {children}
+        </div>
+    );
 }

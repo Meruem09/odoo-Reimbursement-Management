@@ -3,15 +3,16 @@
 import { useAuth } from '@/app/contexts/AuthContext';
 import { EmployeesTable } from '@/app/components/EmployeesTable';
 import { EmployeeDashboard } from '@/app/components/dashboard/EmployeeDashboard';
+import { redirect } from 'next/navigation';
 
 export default function EmployeesPage() {
   const { user, loading: authLoading } = useAuth();
 
   if (authLoading || !user) return null;
 
-  // EMPLOYEE role → show their own expense dashboard
+  // EMPLOYEE role → redirect to their dashboard
   if (user.role !== 'ADMIN') {
-    return <EmployeeDashboard />;
+    redirect('/dashboard/expenses');
   }
 
   // ADMIN role → show the user management table

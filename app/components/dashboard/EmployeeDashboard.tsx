@@ -34,7 +34,7 @@ export function EmployeeDashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/expenses/my");
+        const res = await fetch("/api/expenses/my", { credentials: "include" });
         if (res.ok) {
           setExpenses(await res.json());
         }

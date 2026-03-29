@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/api-auth";
+import { convertToINR } from "@/lib/currency";
 
 export async function GET(request: NextRequest) {
   const auth = await requireUserId(request);
@@ -19,12 +20,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const teamMemberIds = user.employees.map(e => e.id);
+    const expensesWhere: any = { status: { not: "DRAFT" } };
+    let displayTeamMembers = user.employees;
+
+    if (user.role === "ADMIN") {
+      expensesWhere.companyId = user.companyId;
+      const allCompanyUsers = await prisma.user.findMany({
+        where: { companyId: user.companyId }
+      });
+      displayTeamMembers = allCompanyUsers as any;
+    } else {
+      expensesWhere.submittedById = { in: user.employees.map(e => e.id) };
+    }
+
     const expensesRaw = await prisma.expense.findMany({
-      where: {
-        submittedById: { in: teamMemberIds },
-        status: { not: "DRAFT" }
-      },
+      where: expensesWhere,
       include: {
         submittedBy: true,
         approvalActions: true
@@ -32,22 +42,26 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" }
     });
 
-    const expenses = expensesRaw.map((e) => ({
-      id: e.id,
-      employee: e.submittedBy.name,
-      dept: "Unknown", 
-      category: e.category,
-      desc: e.title || e.description || "",
-      date: e.expenseDate.toISOString().split("T")[0],
-      display: `${e.currency} ${e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      amount: e.amount,
-      status: e.status === "PENDING" || e.status === "IN_REVIEW" ? "pending" : (e.status === "APPROVED" ? "approved" : "rejected"),
-      step: e.currentStepOrder > 0 ? `Step ${e.currentStepOrder}` : "Waiting Approval",
-      receipt: !!e.receiptUrl,
-      comment: e.approvalActions.length > 0 ? e.approvalActions[e.approvalActions.length - 1].comment || "" : ""
+    const expenses = await Promise.all(expensesRaw.map(async (e) => {
+      const inrAmount = await convertToINR(e.amount, e.currency);
+      
+      return {
+        id: e.id,
+        employee: e.submittedBy.name,
+        dept: "Unknown", 
+        category: e.category,
+        desc: e.title || e.description || "",
+        date: e.expenseDate.toISOString().split("T")[0],
+        display: `₹ ${inrAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        amount: inrAmount,
+        status: e.status === "PENDING" || e.status === "IN_REVIEW" ? "pending" : (e.status === "APPROVED" ? "approved" : "rejected"),
+        step: e.currentStepOrder > 0 ? `Step ${e.currentStepOrder}` : "Waiting Approval",
+        receipt: !!e.receiptUrl,
+        comment: e.approvalActions.length > 0 ? e.approvalActions[e.approvalActions.length - 1].comment || "" : ""
+      };
     }));
 
-    const teamMembers = user.employees.map((e) => ({
+    const teamMembers = displayTeamMembers.map((e) => ({
       name: e.name,
       role: e.role === "EMPLOYEE" ? "Employee" : "Manager",
       initials: e.name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()

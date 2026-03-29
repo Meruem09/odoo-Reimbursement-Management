@@ -96,3 +96,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  const adminUser = await getDbUser(request);
+  if (!adminUser || adminUser.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Unauthorized. Admin access required.' }, { status: 403 });
+  }
+
+  try {
+    const { id, name, role, managerId } = await request.json();
+
+    if (!id) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+
+    // Update the user
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        name: name || undefined,
+        role: role || undefined,
+        managerId: managerId === "" ? null : (managerId || undefined),
+      },
+      include: {
+        manager: {
+          select: { name: true }
+        }
+      }
+    });
+
+    return NextResponse.json(updatedUser);
+  } catch (error) {
+    console.error('Failed to update employee', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
