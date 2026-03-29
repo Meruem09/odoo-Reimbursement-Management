@@ -1,0 +1,314 @@
+// Prisma schema: Reimbursement Management System
+// Provider: SQLite (local dev.db)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum TokenType {
+  RESET  // forgot-password flow
+  SETUP  // first-time password setup (admin-invited user)
+}
+
+enum ExpenseStatus {
+  DRAFT       // saved but not submitted
+  PENDING     // submitted, awaiting first approver
+  IN_REVIEW   // at least one step done, more pending
+  APPROVED
+  REJECTED
+}
+
+enum ExpenseCategory {
+  TRAVEL
+  MEALS
+  ACCOMMODATION
+  OFFICE_SUPPLIES
+  ENTERTAINMENT
+  MEDICAL
+  TRAINING
+  UTILITIES
+  OTHER
+}
+
+enum RuleType {
+  PERCENTAGE        // X% of approvers approve → auto-approve
+  SPECIFIC_APPROVER // a named person approves → auto-approve
+  HYBRID            // either of the above (both fields set)
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+// ─── Company ─────────────────────────────────────────────────────────────────
+
+model Company {
+  id             String   @id @default(cuid())
+  name           String
+  country        String   // ISO 3166-1 alpha-2, e.g. "IN"
+  currency       String   // ISO 4217, e.g. "INR"
+  currencySymbol String   @map("currency_symbol")
+  currencyName   String   @map("currency_name")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  users          User[]
+  expenses       Expense[]
+  approvalChains ApprovalChain[]
+  approvalRules  ApprovalRule[]
+
+  @@map("companies")
+}
+
+// ─── User ────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String  @id @default(cuid())
+  name          String
+  email         String  @unique
+  passwordHash  String? @map("password_hash")
+  avatarUrl     String? @map("avatar_url")
+  provider      String? // "google" | null
+  role          Role    @default(EMPLOYEE)
+  isActive      Boolean @default(true) @map("is_active")
+  isVerified    Boolean @default(false) @map("is_verified")
+  isPasswordSet Boolean @default(false) @map("is_password_set")
+
+  companyId String  @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  managerId String? @map("manager_id")
+  manager   User?   @relation("ManagerEmployees", fields: [managerId], references: [id])
+  employees User[]  @relation("ManagerEmployees")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sessions              Session[]
+  passwordResetTokens   PasswordResetToken[]
+  oAuthAccounts         OAuthAccount[]
+  submittedExpenses     Expense[]          @relation("ExpenseSubmitter")
+  approvalActions       ApprovalAction[]
+  assignedSteps         ApprovalStep[]     @relation("StepApprover")
+  specificApproverRules ApprovalRule[]     @relation("SpecificApprover")
+
+  @@index([companyId])
+  @@index([email])
+  @@map("users")
+}
+
+// ─── OAuthAccount ────────────────────────────────────────────────────────────
+
+model OAuthAccount {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  provider          String  // e.g. "google"
+  providerAccountId String  @map("provider_account_id")
+  accessToken       String? @map("access_token")
+  refreshToken      String? @map("refresh_token")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+// ─── Session ─────────────────────────────────────────────────────────────────
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  tokenHash  String   @unique @map("token_hash")
+  deviceName String?  @map("device_name")
+  ipAddress  String?  @map("ip_address")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ─── PasswordResetToken ───────────────────────────────────────────────────────
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  type      TokenType @default(RESET)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ─── Expense ─────────────────────────────────────────────────────────────────
+
+model Expense {
+  id String @id @default(cuid())
+
+  title       String
+  description String?
+  category    ExpenseCategory
+  expenseDate DateTime        @map("expense_date")
+
+  // Amount in the currency the employee chose (may differ from company currency)
+  amount   Float  // SQLite has no Decimal; store as Float, format on display
+  currency String // ISO 4217 of the submitted amount
+
+  // Converted to company's base currency at submission time
+  amountConverted Float?  @map("amount_converted")
+  exchangeRate    Float?  @map("exchange_rate")
+
+  // Receipt / OCR
+  receiptUrl String? @map("receipt_url")  // Cloudinary URL
+  ocrRawData String? @map("ocr_raw_data") // JSON stringified OCR fields
+
+  // Workflow state
+  status           ExpenseStatus @default(DRAFT)
+  currentStepOrder Int           @default(0) @map("current_step_order")
+
+  submittedById String  @map("submitted_by_id")
+  submittedBy   User    @relation("ExpenseSubmitter", fields: [submittedById], references: [id])
+
+  companyId String  @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Approval chain attached at submission time
+  approvalChainId String?        @map("approval_chain_id")
+  approvalChain   ApprovalChain? @relation(fields: [approvalChainId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  approvalActions ApprovalAction[]
+
+  @@index([companyId])
+  @@index([submittedById])
+  @@index([status])
+  @@map("expenses")
+}
+
+// ─── ApprovalChain ───────────────────────────────────────────────────────────
+// Reusable template defining who approves and in what order.
+// Admin creates these; attached to an expense at submission time.
+
+model ApprovalChain {
+  id          String  @id @default(cuid())
+  name        String  // e.g. "Standard 3-level"
+  description String?
+  isDefault   Boolean @default(false) @map("is_default")
+
+  companyId String  @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  steps    ApprovalStep[]
+  rules    ApprovalRule[]
+  expenses Expense[]
+
+  @@index([companyId])
+  @@map("approval_chains")
+}
+
+// ─── ApprovalStep ────────────────────────────────────────────────────────────
+// One ordered step inside a chain.
+// isManagerStep = true  → resolve approver at runtime from expense.submittedBy.manager
+// assignedUserId set    → fixed named approver (e.g. CFO)
+
+model ApprovalStep {
+  id    String @id @default(cuid())
+  order Int    // 1, 2, 3 … unique within chain
+  label String // "Manager", "Finance", "Director"
+
+  isManagerStep Boolean @default(false) @map("is_manager_step")
+
+  approvalChainId String        @map("approval_chain_id")
+  approvalChain   ApprovalChain @relation(fields: [approvalChainId], references: [id], onDelete: Cascade)
+
+  assignedUserId String? @map("assigned_user_id")
+  assignedUser   User?   @relation("StepApprover", fields: [assignedUserId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  approvalActions ApprovalAction[]
+
+  @@unique([approvalChainId, order])
+  @@index([approvalChainId])
+  @@map("approval_steps")
+}
+
+// ─── ApprovalRule ────────────────────────────────────────────────────────────
+// Conditional auto-approval logic attached to a chain.
+// Evaluated after every ApprovalAction is recorded.
+
+model ApprovalRule {
+  id       String   @id @default(cuid())
+  ruleType RuleType @map("rule_type")
+
+  percentage         Int?    // for PERCENTAGE / HYBRID
+  specificApproverId String? @map("specific_approver_id") // for SPECIFIC_APPROVER / HYBRID
+  specificApprover   User?   @relation("SpecificApprover", fields: [specificApproverId], references: [id])
+
+  approvalChainId String        @map("approval_chain_id")
+  approvalChain   ApprovalChain @relation(fields: [approvalChainId], references: [id], onDelete: Cascade)
+
+  companyId String  @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([approvalChainId])
+  @@map("approval_rules")
+}
+
+// ─── ApprovalAction ──────────────────────────────────────────────────────────
+// Records every approve/reject decision on an expense at a specific step.
+
+model ApprovalAction {
+  id       String           @id @default(cuid())
+  decision ApprovalDecision
+  comment  String?
+
+  expenseId String  @map("expense_id")
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  stepId String       @map("step_id")
+  step   ApprovalStep @relation(fields: [stepId], references: [id])
+
+  approverId String @map("approver_id")
+  approver   User   @relation(fields: [approverId], references: [id])
+
+  decidedAt DateTime @default(now()) @map("decided_at")
+
+  @@index([expenseId])
+  @@index([approverId])
+  @@map("approval_actions")
+}
