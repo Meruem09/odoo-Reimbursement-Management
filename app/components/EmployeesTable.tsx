@@ -21,6 +21,12 @@ export function EmployeesTable() {
   const [newEmail, setNewEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Edit employee state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editRole, setEditRole] = useState('');
+  const [editManagerId, setEditManagerId] = useState('');
+
   useEffect(() => {
     fetchEmployees();
   }, []);
@@ -70,6 +76,46 @@ export function EmployeesTable() {
       }
     } catch (error) {
       console.error('Submission failed', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditClick = (employee: Employee) => {
+    setEditingId(employee.id);
+    setEditName(employee.name);
+    setEditRole(employee.role);
+    setEditManagerId(employees.find(e => e.name === employee.manager?.name)?.id || '');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const handleSaveEdit = async (userId: string) => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/employees', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: userId,
+          name: editName,
+          role: editRole,
+          managerId: editManagerId,
+        }),
+      });
+
+      if (res.ok) {
+        const updatedUser = await res.json();
+        setEmployees(employees.map(emp => emp.id === userId ? updatedUser : emp));
+        setEditingId(null);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to update user');
+      }
+    } catch (error) {
+      console.error('Update failed', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -161,15 +207,75 @@ export function EmployeesTable() {
             ) : (
               employees.map(user => (
                 <tr key={user.id}>
-                  <td className="py-3 px-2 text-[#1a1a2e] font-semibold border-b border-[#f8f6f2] text-sm">{user.name}</td>
-                  <td className="py-3 px-2 text-[#444] border-b border-[#f8f6f2] text-sm">
-                    <span className="bg-[#f0ede8] text-[#555] text-[11px] font-semibold px-2.5 py-[3px] rounded-[12px] uppercase tracking-wider">{user.role}</span>
-                  </td>
-                  <td className="py-3 px-2 text-[#444] border-b border-[#f8f6f2] text-sm truncate max-w-[180px]">{user.manager?.name || '-'}</td>
-                  <td className="py-3 px-2 text-[#444] border-b border-[#f8f6f2] text-sm text-[#888]">{user.email}</td>
-                  <td className="py-3 px-2 border-b border-[#f8f6f2]">
-                    <button className="text-[#6366f1] text-[13px] font-semibold hover:opacity-80 transition-opacity">Edit</button>
-                  </td>
+                  {editingId === user.id ? (
+                    <>
+                      <td className="py-2.5 px-2 border-b border-[#f8f6f2]">
+                        <input 
+                          type="text" 
+                          value={editName} 
+                          onChange={e => setEditName(e.target.value)} 
+                          className="w-full border-b-[1.5px] border-[#6366f1] bg-transparent text-[15px] text-[#1a1a2e] py-1 px-1 outline-none"
+                        />
+                      </td>
+                      <td className="py-2.5 px-2 border-b border-[#f8f6f2]">
+                        <select 
+                          value={editRole} 
+                          onChange={e => setEditRole(e.target.value)}
+                          className="w-full border-b-[1.5px] border-[#6366f1] bg-transparent text-[14px] text-[#1a1a2e] py-1 px-1 outline-none"
+                        >
+                          <option value="EMPLOYEE">Employee</option>
+                          <option value="MANAGER">Manager</option>
+                          <option value="ADMIN">Admin</option>
+                        </select>
+                      </td>
+                      <td className="py-2.5 px-2 border-b border-[#f8f6f2]">
+                        <select 
+                          value={editManagerId} 
+                          onChange={e => setEditManagerId(e.target.value)}
+                          className="w-full border-b-[1.5px] border-[#6366f1] bg-transparent text-[14px] text-[#1a1a2e] py-1 px-1 outline-none"
+                        >
+                          <option value="">-- No Manager --</option>
+                          {employees.filter(e => (e.role === 'MANAGER' || e.role === 'ADMIN') && e.id !== user.id).map(mgr => (
+                            <option key={mgr.id} value={mgr.id}>{mgr.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-3 px-2 text-[#888] border-b border-[#f8f6f2] text-sm">{user.email}</td>
+                      <td className="py-3 px-2 border-b border-[#f8f6f2]">
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => handleSaveEdit(user.id)}
+                            className="text-[#16a34a] text-[13px] font-semibold"
+                          >
+                            Save
+                          </button>
+                          <button 
+                            onClick={handleCancelEdit}
+                            className="text-[#ef4444] text-[13px] font-semibold"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="py-3 px-2 text-[#1a1a2e] font-semibold border-b border-[#f8f6f2] text-sm">{user.name}</td>
+                      <td className="py-3 px-2 text-[#444] border-b border-[#f8f6f2] text-sm">
+                        <span className="bg-[#f0ede8] text-[#555] text-[11px] font-semibold px-2.5 py-[3px] rounded-[12px] uppercase tracking-wider">{user.role}</span>
+                      </td>
+                      <td className="py-3 px-2 text-[#444] border-b border-[#f8f6f2] text-sm truncate max-w-[180px]">{user.manager?.name || '-'}</td>
+                      <td className="py-3 px-2 text-[#444] border-b border-[#f8f6f2] text-sm text-[#888]">{user.email}</td>
+                      <td className="py-3 px-2 border-b border-[#f8f6f2]">
+                        <button 
+                          onClick={() => handleEditClick(user)}
+                          className="text-[#6366f1] text-[13px] font-semibold hover:opacity-80 transition-opacity"
+                        >
+                          Edit
+                        </button>
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))
             )}

@@ -38,13 +38,22 @@ export default async function ApprovalsPage() {
   }
 
   // Fetch all pending / history expenses under this manager's domain
-  // For the sake of the hackathon demo, we'll fetch all expenses of employees that report to this manager
-  const teamMemberIds = user.employees.map(e => e.id);
+  // For the ADMIN, fetch all expenses across the company
+  const expensesWhere: any = { status: { not: "DRAFT" } };
+  let displayTeamMembers = user.employees;
+
+  if (user.role === "ADMIN") {
+    expensesWhere.companyId = user.companyId;
+    const allCompanyUsers = await prisma.user.findMany({
+      where: { companyId: user.companyId }
+    });
+    displayTeamMembers = allCompanyUsers as any;
+  } else {
+    expensesWhere.submittedById = { in: user.employees.map(e => e.id) };
+  }
+
   const expensesRaw = await prisma.expense.findMany({
-    where: {
-      submittedById: { in: teamMemberIds },
-      status: { not: "DRAFT" }
-    },
+    where: expensesWhere,
     include: {
       submittedBy: true,
       approvalActions: true
@@ -72,8 +81,8 @@ export default async function ApprovalsPage() {
     };
   });
 
-  const teamMembers = user.employees.map((e) => {
-    const initials = e.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase();
+  const teamMembers = displayTeamMembers.map((e) => {
+    const initials = e.name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase();
     return {
       name: e.name,
       role: e.role === "EMPLOYEE" ? "Employee" : "Manager",
@@ -82,7 +91,7 @@ export default async function ApprovalsPage() {
   });
 
   return (
-    <div className="flex-1 w-full bg-[#faf9f6] min-h-screen">
+    <div className="flex-1 w-full bg-[#F1F5F9] min-h-screen">
       <ApprovalsClient initialExpenses={expenses as any} teamMembers={teamMembers as any} user={user} />
     </div>
   );

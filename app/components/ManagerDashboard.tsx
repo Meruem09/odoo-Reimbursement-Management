@@ -458,7 +458,7 @@ export default function ManagerDashboard() {
     useEffect(() => {
         async function fetchData() {
             try {
-                const res = await fetch("/api/approvals");
+                const res = await fetch("/api/approvals", { credentials: "include" });
                 if (!res.ok) {
                     if (res.status === 403) setError("You do not have permission to view approvals.");
                     else setError("Failed to fetch dashboard data.");
@@ -487,6 +487,7 @@ export default function ManagerDashboard() {
             const res = await fetch('/api/approvals', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ id, decision: reqDecision, comment })
             });
             if (!res.ok) {

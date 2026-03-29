@@ -45,6 +45,7 @@ export const navGroups: NavGroup[] = [
         title: "Employees",
         href: "/dashboard/employees",
         icon: Users,
+        adminOnly: true,
       },
       {
         title: "Approval Chains",
@@ -61,16 +62,6 @@ export const navGroups: NavGroup[] = [
         title: "Approvals",
         href: "/dashboard/approvals",
         icon: FileCheck,
-      },
-      {
-        title: "Reports",
-        href: "/dashboard/reports",
-        icon: FileText,
-      },
-      {
-        title: "Settings",
-        href: "/dashboard/settings",
-        icon: Settings,
       },
     ],
   },
